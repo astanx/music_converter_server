@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+SQLAlchemy
+asyncpg
+databases
+Pillow
+pytesseract
+mido
+midi2audio
+python-rtmidi
+python-multipart
+pydub
+ffmpeg
