@@ -3,11 +3,10 @@ from app.database import database
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import exc
-from fastapi.responses import FileResponse
-import pytesseract
-from PIL import Image
+import os
 import mido
-from midi2audio import FluidSynth
+import subprocess
+
 
 class UserLogin(BaseModel):
        name: str
@@ -71,6 +70,20 @@ async def login_user(user: UserLogin):
 
 @app.post("/music_converter")
 async def convert_music(file: UploadFile = File(...)):
-    music = 'чтото'
+    contents = await file.read()
+    
+    with open(file.filename, 'wb') as f:
+        f.write(contents)
+
+    output_format = 'mp3' 
+    output_filename = f"{os.path.splitext(file.filename)[0]}.{output_format}"
+
+    midi_file = file.filename
+    soundfont = "path/to/your/soundfont.sf2" 
+
+    subprocess.run(['fluidsynth', '-ni', soundfont, midi_file, '-F', output_filename, '-n', 'audio.file-format=wav'])
+
+    os.remove(file.filename)
+    return {"filename": output_filename}
 
     

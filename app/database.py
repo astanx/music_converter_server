@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import MetaData
 from databases import Database
 
 DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost/music_converter_db"
