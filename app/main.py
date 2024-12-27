@@ -79,10 +79,9 @@ async def convert_music(file: UploadFile = File(...)):
     output_filename = f"{os.path.splitext(file.filename)[0]}.{output_format}"
 
     midi_file = file.filename
-    soundfont = "path/to/your/soundfont.sf2" 
-
-    subprocess.run(['fluidsynth', '-ni', soundfont, midi_file, '-F', output_filename, '-n', 'audio.file-format=wav'])
-
+    soundfont_path = os.path.join(os.path.dirname(__file__), 'GeneralUser-GS.sf2')
+    subprocess.run(['fluidsynth', '-ni', soundfont_path, midi_file, '-F', output_filename, '-n', 'audio.file-format=wav'])
+    
     os.remove(file.filename)
     return {"filename": output_filename}
 
