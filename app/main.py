@@ -61,10 +61,10 @@ async def login_user(user: UserLogin):
     db_user = await database.fetch_one(query=query, values={"name": user.name})
     
     if db_user is None:
-        raise HTTPException(status_code=400, detail="Invalid username or password")
+        raise HTTPException(status_code=400, detail="Invalid username")
 
     if db_user['password'] != user.password: 
-        raise HTTPException(status_code=400, detail="Invalid username or password")
+        raise HTTPException(status_code=400, detail="Invalid password")
 
     return {"message": "Login successful", "name": db_user["name"], "id": db_user["id"]}
 
@@ -80,6 +80,7 @@ async def convert_music(file: UploadFile = File(...)):
 
     midi_file = file.filename
     soundfont_path = os.path.join(os.path.dirname(__file__), 'GeneralUser-GS.sf2')
+    
     subprocess.run(['fluidsynth', '-ni', soundfont_path, midi_file, '-F', output_filename, '-n', 'audio.file-format=wav'])
     
     os.remove(file.filename)
