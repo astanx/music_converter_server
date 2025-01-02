@@ -6,6 +6,11 @@ from sqlalchemy import exc
 import os
 import mido
 import subprocess
+from fastapi.responses import FileResponse
+from typing import List
+from pydub import AudioSegment
+from fastapi import Request
+import base64
 
 
 class UserLogin(BaseModel):
@@ -67,23 +72,57 @@ async def login_user(user: UserLogin):
         raise HTTPException(status_code=400, detail="Invalid password")
 
     return {"message": "Login successful", "name": db_user["name"], "id": db_user["id"]}
-
-@app.post("/music_converter")
-async def convert_music(file: UploadFile = File(...)):
-    contents = await file.read()
-    
-    with open(file.filename, 'wb') as f:
-        f.write(contents)
-
-    output_format = 'mp3' 
-    output_filename = f"{os.path.splitext(file.filename)[0]}.{output_format}"
-
-    midi_file = file.filename
+index = 0
+@app.post("/music_converter/{userId}")
+async def convert_music( userId: int, request: Request, files: List[UploadFile] = File(...)):
+    global index
+    output_files = []
     soundfont_path = os.path.join(os.path.dirname(__file__), 'GeneralUser-GS.sf2')
-    
-    subprocess.run(['fluidsynth', '-ni', soundfont_path, midi_file, '-F', output_filename, '-n', 'audio.file-format=wav'])
-    
-    os.remove(file.filename)
-    return {"filename": output_filename}
+    wav_files = []
 
+    output_directory = "output"
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    for file in files:
+        contents = await file.read()
+        
+        with open(file.filename, 'wb') as f:
+            f.write(contents)
+
+        output_format = 'wav'
+        wav_filename = f"{os.path.splitext(file.filename)[0]}.{output_format}"
+        midi_file = file.filename
+        
+        subprocess.run(['fluidsynth', '-ni', soundfont_path, midi_file, '-F', wav_filename, '-n', 'audio.file-format=wav'])
+        
+        os.remove(file.filename)
+        wav_files.append(wav_filename) 
+
+    combined = AudioSegment.empty()
+    for wav_file in wav_files:
+        audio_segment = AudioSegment.from_wav(wav_file)
+        combined += audio_segment 
+
+    output_filename = f"combined_output{index}.wav"
+    output_path = os.path.join(output_directory, output_filename)
+
+    try:
+        combined.export(output_path, format="wav")
+    except Exception as e:
+        return {"error": str(e)}
+
+    for wav_file in wav_files:
+        os.remove(wav_file)
+    with open(output_path, 'rb') as f:
+        music_data = f.read()
+
+    query = "INSERT INTO history (userId, music) VALUES (:userId, :music)"
+    await database.execute(query=query, values={"userId": userId, "music": music_data})
     
+    file_url = f"{request.url.scheme}://{request.url.hostname}:{request.url.port}/output/{output_filename}"
+    index += 1
+    return {"url": file_url}
+@app.get("/output/{filename}")
+async def get_file(filename: str):
+    return FileResponse(path=os.path.join("output", filename), media_type='audio/wav', filename=filename)
