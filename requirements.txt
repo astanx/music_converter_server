@@ -4,4 +4,5 @@ databases
 asyncpg
 mido
 sqlalchemy
+psycopg2
 python-multipart
