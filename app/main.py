@@ -4,9 +4,7 @@ from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import exc
 import os
-import mido
 import subprocess
-from fastapi.responses import FileResponse
 from typing import List
 from pydub import AudioSegment
 import base64
@@ -128,18 +126,41 @@ async def convert_music(userId: int, files: List[UploadFile] = File(...)):
     return {"music": encoded_music_data, "error": False, "message": "Convert successful"}
 
 @app.get("/history/{userId}")
-async def get_file(userId: int):
-    query = "SELECT id, music FROM history WHERE userId = :userId"
-    history = await database.fetch_all(query=query, values={"userId": userId})
+async def get_file(userId: int, page: int = 1, pageSize: int = 3):
+    if page > 0:
+        offset = (page - 1) * pageSize
+    else: 
+        offset = 1
     
+    count_query = "SELECT COUNT(*) FROM history WHERE userId = :userId"
+    total_count = await database.fetch_val(count_query, values={"userId": userId})
+    
+    query = "SELECT id, music FROM history WHERE userId = :userId LIMIT :limit OFFSET :offset"
+    history = await database.fetch_all(query=query, values={"userId": userId, "limit": pageSize, "offset": offset})
     result = [{"id": item["id"], "music": item["music"]} for item in history]
-    return {"music": result, "error": False, "message": "Successful"}
-@app.delete("/history/{id}")
-async def delete_file(id: int): 
+    
+    total_pages = (total_count + pageSize - 1) // pageSize  
+    
+    return {
+        "music": result,
+        "error": False,
+        "message": "Successful",
+        "totalCount": total_count,
+        "totalPages": total_pages
+    }
+@app.delete("/history/{userId}/{id}")
+async def delete_file(userId: int, id: int, pageSize: int = 3): 
     query = "DELETE FROM history WHERE id = :id"
-    result = await database.execute(query=query, values={"id": id})
+    try:
+        result = await database.execute(query=query, values={"id": id})
+        
+        count_query = "SELECT COUNT(*) FROM history WHERE userId = :userId"
+        total_count = await database.fetch_val(count_query, values={"userId": userId})
     
-    if result == 0:
-        return {"error": True, "message": "Record not found"}
-    
-    return {"error": False, "message": "Successful"}
+        total_pages = (total_count + pageSize - 1) // pageSize  
+        if result == 0:
+            return {"error": True, "message": "No record found to delete"}
+        
+        return {"error": False, "message": "Successful", "totalPages": total_pages, "totalCount": total_count}
+    except Exception as e:
+        return {"error": True, "message": str(e)}
