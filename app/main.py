@@ -9,7 +9,6 @@ import subprocess
 from fastapi.responses import FileResponse
 from typing import List
 from pydub import AudioSegment
-from fastapi import Request
 import base64
 
 
@@ -126,14 +125,21 @@ async def convert_music(userId: int, files: List[UploadFile] = File(...)):
     query = "INSERT INTO history (userId, music) VALUES (:userId, :music)"
     await database.execute(query=query, values={"userId": userId, "music": encoded_music_data})
     os.remove(output_path)
-    return {"music": encoded_music_data, "error": False}
+    return {"music": encoded_music_data, "error": False, "message": "Convert successful"}
 
 @app.get("/history/{userId}")
 async def get_file(userId: int):
-    query = "SELECT music FROM history WHERE userId = :userId"
+    query = "SELECT id, music FROM history WHERE userId = :userId"
     history = await database.fetch_all(query=query, values={"userId": userId})
-    return history
-
-@app.get("/output/{filename}")
-async def get_file(filename: str):
-    return FileResponse(path=os.path.join("output", filename), media_type='audio/wav', filename=filename)
+    
+    result = [{"id": item["id"], "music": item["music"]} for item in history]
+    return {"music": result, "error": False, "message": "Successful"}
+@app.delete("/history/{id}")
+async def delete_file(id: int): 
+    query = "DELETE FROM history WHERE id = :id"
+    result = await database.execute(query=query, values={"id": id})
+    
+    if result == 0:
+        return {"error": True, "message": "Record not found"}
+    
+    return {"error": False, "message": "Successful"}
