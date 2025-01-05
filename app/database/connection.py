@@ -14,14 +14,12 @@ users_metadata = Table("users", metadata,
     Column("id", Integer(), primary_key=True, autoincrement=True),
     Column("name", String(255), nullable=False),
     Column("password", String(128),  nullable=False),
-    Column("admin", Boolean(), default=False)
 )
 
-request_metadata = Table("request", metadata,
+request_metadata = Table("history", metadata,
     Column("id", Integer(), primary_key=True, autoincrement=True),
-    Column("user_id", Integer(), ForeignKey("users.id"), nullable=False),
-    Column("source_file_path", Text()),
-    Column("result_file_path", Text())
+    Column("userId", Integer(), ForeignKey("users.id"), nullable=False),
+    Column("music", Text()),
 )
 
 metadata.create_all(engine)
