@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from .database.connection import database
-from .middlewares.cors import add_cors
-from .api import users, music
+from app.database.connection import database
+from app.middlewares.cors import add_cors
+from app.api import users, music
 
 app = FastAPI()
 add_cors(app)

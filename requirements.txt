@@ -6,3 +6,4 @@ mido
 sqlalchemy
 python-multipart
 psycopg2
+pydub
