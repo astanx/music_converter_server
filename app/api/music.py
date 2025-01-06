@@ -1,8 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Response, Request
 from typing import List
-from fastapi.responses import StreamingResponse
 from pydub import AudioSegment
-import base64, os, subprocess
+import os, subprocess
 from app.database.connection import database
 
 
@@ -55,9 +54,9 @@ async def convert_music(request: Request, userId: int, files: List[UploadFile] =
 
     with open(output_path, 'rb') as f:
         music_data = f.read()
-
-    query = "INSERT INTO history (userId, music) VALUES (:userId, :music) RETURNING id"
-    id = await database.execute(query=query, values={"userId": userId, "music": music_data})
+    
+    query = "INSERT INTO history (userid, music) VALUES (:userid, :music) RETURNING id"
+    id = await database.execute(query=query, values={"userid": userId, "music": music_data})
     
     url = f"{request.url.scheme}://{request.url.netloc}/music/{id}"
 
@@ -87,11 +86,11 @@ async def get_history(userId: int, page: int = 1, pageSize: int = 3):
     else: 
         offset = 1
     
-    count_query = "SELECT COUNT(*) FROM history WHERE userId = :userId"
-    total_count = await database.fetch_val(count_query, values={"userId": userId})
+    count_query = "SELECT COUNT(*) FROM history WHERE userid = :userid"
+    total_count = await database.fetch_val(count_query, values={"userid": userId})
     
-    query = "SELECT id, url FROM history WHERE userId = :userId LIMIT :limit OFFSET :offset"
-    history = await database.fetch_all(query=query, values={"userId": userId, "limit": pageSize, "offset": offset})
+    query = "SELECT id, url FROM history WHERE userid = :userid LIMIT :limit OFFSET :offset"
+    history = await database.fetch_all(query=query, values={"userid": userId, "limit": pageSize, "offset": offset})
     result = [{"id": item["id"], "url": item["url"]} for item in history]
     
     total_pages = (total_count + pageSize - 1) // pageSize  
@@ -109,8 +108,8 @@ async def delete_file(userId: int, id: int, pageSize: int = 3):
     try:
         result = await database.execute(query=query, values={"id": id})
         
-        count_query = "SELECT COUNT(*) FROM history WHERE userId = :userId"
-        total_count = await database.fetch_val(count_query, values={"userId": userId})
+        count_query = "SELECT COUNT(*) FROM history WHERE userid = :userId"
+        total_count = await database.fetch_val(count_query, values={"userid": userId})
     
         total_pages = (total_count + pageSize - 1) // pageSize  
         if result == 0:

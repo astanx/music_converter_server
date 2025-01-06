@@ -2,10 +2,13 @@ from sqlalchemy import MetaData, create_engine, Table, Column, Integer, String, 
 from databases import Database
 
 DATABASE_USER_NAME = "postgres"
-DATABASE_PASSWORD = "password"
-DATABASE_URL = "postgresql+asyncpg://" + DATABASE_USER_NAME + ":" + DATABASE_PASSWORD + "@localhost/music_converter_db"
-ENGINE_URL = "postgresql+psycopg2://" + DATABASE_USER_NAME + ":" + DATABASE_PASSWORD + "@localhost/music_converter_db"
+DATABASE_PASSWORD = "qxHDUgHHzDebSLmLVzxCSZbHuBmKOYdI"
+DATABASE_HOST = "autorack.proxy.rlwy.net"
+DATABASE_PORT = "35590"
+DATABASE_NAME = "railway"
 
+DATABASE_URL = f"postgresql://{DATABASE_USER_NAME}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
+ENGINE_URL = f"postgresql://{DATABASE_USER_NAME}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 database = Database(DATABASE_URL)
 engine = create_engine(ENGINE_URL)
 metadata = MetaData()
@@ -18,7 +21,7 @@ users_metadata = Table("users", metadata,
 
 request_metadata = Table("history", metadata,
     Column("id", Integer(), primary_key=True, autoincrement=True),
-    Column("userId", Integer(), ForeignKey("users.id"), nullable=False),
+    Column("userid", Integer(), ForeignKey("users.id"), nullable=False),
     Column("music", LargeBinary(), nullable=False),
     Column("url", String())
 )
