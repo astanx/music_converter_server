@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, create_engine, Table, Column, Integer, String, Boolean, Text, ForeignKey
+from sqlalchemy import MetaData, create_engine, Table, Column, Integer, String, LargeBinary, ForeignKey
 from databases import Database
 
 DATABASE_USER_NAME = "postgres"
@@ -19,7 +19,8 @@ users_metadata = Table("users", metadata,
 request_metadata = Table("history", metadata,
     Column("id", Integer(), primary_key=True, autoincrement=True),
     Column("userId", Integer(), ForeignKey("users.id"), nullable=False),
-    Column("music", Text()),
+    Column("music", LargeBinary(), nullable=False),
+    Column("url", String())
 )
 
 metadata.create_all(engine)

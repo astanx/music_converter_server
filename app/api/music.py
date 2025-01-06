@@ -1,5 +1,6 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Response, Request
 from typing import List
+from fastapi.responses import StreamingResponse
 from pydub import AudioSegment
 import base64, os, subprocess
 from app.database.connection import database
@@ -8,7 +9,7 @@ from app.database.connection import database
 router = APIRouter()
 
 @router.post("/music_converter/{userId}")
-async def convert_music(userId: int, files: List[UploadFile] = File(...)):
+async def convert_music(request: Request, userId: int, files: List[UploadFile] = File(...)):
     soundfont_path = os.path.join(os.path.dirname(__file__), 'GeneralUser-GS.sf2')
     wav_files = []
 
@@ -54,15 +55,33 @@ async def convert_music(userId: int, files: List[UploadFile] = File(...)):
 
     with open(output_path, 'rb') as f:
         music_data = f.read()
-    encoded_music_data = base64.b64encode(music_data).decode('utf-8')
-    
-    query = "INSERT INTO history (userId, music) VALUES (:userId, :music)"
-    await database.execute(query=query, values={"userId": userId, "music": encoded_music_data})
-    os.remove(output_path)
-    return {"music": encoded_music_data, "error": False, "message": "Convert successful"}
 
+    query = "INSERT INTO history (userId, music) VALUES (:userId, :music) RETURNING id"
+    id = await database.execute(query=query, values={"userId": userId, "music": music_data})
+    
+    url = f"{request.url.scheme}://{request.url.netloc}/music/{id}"
+
+    update_query = "UPDATE history SET url = :url WHERE id = :id"
+    await database.execute(query=update_query, values={"url": url, "id": id})
+
+    os.remove(output_path)
+
+    return {"url": url, "error": False, "message": "Convert successful"}
+
+@router.get("/{id}")
+async def get_file(id: int):
+    query = "SELECT music FROM history WHERE id = :id"
+    music_record = await database.fetch_one(query=query, values={"id": id})
+
+    if not music_record:
+        return {"error": True, "message": "Music record not found."}
+
+    music_data = music_record["music"]
+
+    return Response(content=music_data, media_type="audio/wav")
+    
 @router.get("/history/{userId}")
-async def get_file(userId: int, page: int = 1, pageSize: int = 3):
+async def get_history(userId: int, page: int = 1, pageSize: int = 3):
     if page > 0:
         offset = (page - 1) * pageSize
     else: 
@@ -71,14 +90,14 @@ async def get_file(userId: int, page: int = 1, pageSize: int = 3):
     count_query = "SELECT COUNT(*) FROM history WHERE userId = :userId"
     total_count = await database.fetch_val(count_query, values={"userId": userId})
     
-    query = "SELECT id, music FROM history WHERE userId = :userId LIMIT :limit OFFSET :offset"
+    query = "SELECT id, url FROM history WHERE userId = :userId LIMIT :limit OFFSET :offset"
     history = await database.fetch_all(query=query, values={"userId": userId, "limit": pageSize, "offset": offset})
-    result = [{"id": item["id"], "music": item["music"]} for item in history]
+    result = [{"id": item["id"], "url": item["url"]} for item in history]
     
     total_pages = (total_count + pageSize - 1) // pageSize  
     
     return {
-        "music": result,
+        "url": result,
         "error": False,
         "message": "Successful",
         "totalCount": total_count,
