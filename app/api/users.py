@@ -18,7 +18,8 @@ async def register_user(user: UserRegister):
 
     if existing_user is not None:
         raise HTTPException(status_code=400, detail="User already exists")
-
+    if len(user.name) < 6 or len(user.password) < 6:
+        return {"message": "Minimal length - 6", "error": True}
     query = "INSERT INTO users (name, password) VALUES (:name, :password)"
     try:
         await database.execute(query=query, values={"name": user.name, "password": user.password})
