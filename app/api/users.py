@@ -39,11 +39,15 @@ async def register_user(user: UserRegister):
 async def login_user(user: UserLogin):
     query = "SELECT * FROM users WHERE name = :name"
     db_user = await database.fetch_one(query=query, values={"name": user.name})
-    
+
     if db_user is None:
         return {"message": "Invalid username", "error": True}
 
-    if not bcrypt.checkpw(user.password.encode('utf-8'), db_user['password'].encode('utf-8')): 
+    # Convert the password from bytes to a string
+    hashed_password_bytes = db_user['password']
+
+    # Check if the raw password matches the hashed password
+    if not bcrypt.checkpw(user.password.encode('utf-8'), hashed_password_bytes):
         return {"message": "Invalid password", "error": True}
 
     return {"message": "Login successful", "name": db_user["name"], "id": db_user["id"], "error": False}
