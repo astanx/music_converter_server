@@ -11,24 +11,29 @@ async def read_users():
     users = await database.fetch_all(query=query)
     return users
 
+import bcrypt
+
 @router.post("")
 async def register_user(user: UserRegister):
-    query_check = "SELECT * FROM users WHERE name = :name" 
+    query_check = "SELECT * FROM users WHERE name = :name"
     existing_user = await database.fetch_one(query=query_check, values={"name": user.name})
 
     if existing_user is not None:
         raise HTTPException(status_code=400, detail="User already exists")
     if len(user.name) < 6 or len(user.password) < 6:
         return {"message": "Minimal length - 6", "error": True}
+    
+    
+    hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt())
+    
     query = "INSERT INTO users (name, password) VALUES (:name, :password)"
     try:
-        await database.execute(query=query, values={"name": user.name, "password": user.password})
+        await database.execute(query=query, values={"name": user.name, "password": hashed_password})
         existing_user = await database.fetch_one(query=query_check, values={"name": user.name})
     except exc.IntegrityError:
         return {"message": "Failed to create user", "error": True}
 
     return {"message": "User registered successfully", "name": user.name, "id": existing_user.id, "error": False}
-
 
 @router.post("/login")
 async def login_user(user: UserLogin):
@@ -38,7 +43,7 @@ async def login_user(user: UserLogin):
     if db_user is None:
         return {"message": "Invalid username", "error": True}
 
-    if db_user['password'] != user.password: 
+    if not bcrypt.checkpw(user.password.encode('utf-8'), db_user['password'].encode('utf-8')): 
         return {"message": "Invalid password", "error": True}
 
     return {"message": "Login successful", "name": db_user["name"], "id": db_user["id"], "error": False}

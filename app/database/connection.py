@@ -16,7 +16,7 @@ metadata = MetaData()
 users_metadata = Table("users", metadata,
     Column("id", Integer(), primary_key=True, autoincrement=True),
     Column("name", String(255), nullable=False),
-    Column("password", String(128),  nullable=False),
+    Column("password", LargeBinary(),  nullable=False),
 )
 
 request_metadata = Table("history", metadata,
