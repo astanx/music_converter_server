@@ -4,38 +4,55 @@ from pydub import AudioSegment
 from midi2audio import FluidSynth
 import os
 from app.database.connection import database
-
+from app.neural_network.main import classify_and_convert_to_midi, load_model
 router = APIRouter()
+CLASS_INDICES = {
+        "C1": 0, "C#1": 1, "D1": 2, "D#1": 3, "E1": 4, "F1": 5, "F#1": 6, "G1": 7,
+        "G#1": 8, "A1": 9, "A#1": 10, "B1": 11, "C2": 12, "C#2": 13, "D2": 14, "D#2": 15,
+        "E2": 16, "F2": 17, "F#2": 18, "G2": 19, "G#2": 20, "A2": 21, "A#2": 22, "B2": 23,
+        "C3": 24, "C#3": 25, "D3": 26, "D#3": 27, "E3": 28, "F3": 29, "F#3": 30, "G3": 31,
+        "G#3": 32, "A3": 33, "A#3": 34, "B3": 35, "C4": 36, "C#4": 37, "D4": 38, "D#4": 39,
+        "E4": 40, "F4": 41, "F#4": 42, "G4": 43, "G#4": 44, "A4": 45, "A#4": 46, "B4": 47,
+        "C5": 48, "C#5": 49, "D5": 50, "D#5": 51, "E5": 52, "F5": 53, "F#5": 54, "G5": 55,
+        "G#5": 56, "A5": 57, "A#5": 58, "B5": 59,
+    }
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, 'neural_network', 'trained_model.h5')
 
 @router.post("/music_converter/{userId}")
 async def convert_music(request: Request, userId: int, files: List[UploadFile] = File(...)):
-    soundfont_path = os.path.join(os.path.dirname(__file__), 'GeneralUser-GS.sf2')
-    fs = FluidSynth(soundfont_path)
-
     output_directory = "output"
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-
+    os.makedirs(output_directory, exist_ok=True)
     wav_files = []
-
+    soundfont_path = os.path.join(BASE_DIR, 'GeneralUser-GS.sf2')
+    fs = FluidSynth(soundfont_path)
+    
     for file in files:
         contents = await file.read()
-        temp_midi_path = os.path.join(output_directory, file.filename)
+        temp_image_path = os.path.join(output_directory, file.filename)
 
-        with open(temp_midi_path, 'wb') as f:
+        with open(temp_image_path, 'wb') as f:
             f.write(contents)
 
-        wav_filename = f"{os.path.splitext(file.filename)[0]}.wav"
-        wav_file_path = os.path.join(output_directory, wav_filename)
-
         try:
-            fs.midi_to_audio(temp_midi_path, wav_file_path)
+            # Загрузка модели классификации
+            classification_model = load_model(MODEL_PATH)  # Используем os для построения пути к модели
+            output_midi_path = os.path.join(output_directory, f"{os.path.splitext(file.filename)[0]}.mid")
+
+            # Классификация и преобразование в MIDI
+            classify_and_convert_to_midi([temp_image_path], classification_model, CLASS_INDICES, output_midi_path)
+
+            # Конвертация MIDI в WAV
+            wav_filename = f"{os.path.splitext(file.filename)[0]}.wav"
+            wav_file_path = os.path.join(output_directory, wav_filename)
+
+            fs.midi_to_audio(output_midi_path, wav_file_path)  # Конвертация в WAV
             wav_files.append(wav_file_path)
+
         except Exception as e:
             return {"message": str(e), "error": True}
         finally:
-            os.remove(temp_midi_path)
-
+            os.remove(temp_image_path)
 
     combined = AudioSegment.empty()
     for wav_file in wav_files:
@@ -67,7 +84,6 @@ async def convert_music(request: Request, userId: int, files: List[UploadFile] =
     os.remove(output_path)
 
     return {"url": url, "error": False, "message": "Convert successful"}
-
 @router.get("/{id}")
 async def get_file(id: int):
     query = "SELECT music FROM history WHERE id = :id"
