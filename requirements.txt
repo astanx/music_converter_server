@@ -5,12 +5,10 @@ asyncpg==0.27.0
 mido==1.2.10
 sqlalchemy==1.4.47
 python-multipart==0.0.6
-tensorflow
 opencv-python-headless==4.5.3.56
-numpy==1.21.2
+tensorflow==2.9.0
+numpy==1.21.6 
 tensorflow-hub==0.12.0
-absl-py==0.13.0
-pydub
-midi2audio
-cv2
-
+absl-py==1.2.0  
+pydub==0.25.1
+midi2audio==0.1.1  
