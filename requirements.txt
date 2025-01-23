@@ -3,7 +3,7 @@ uvicorn==0.22.0
 databases==0.6.2
 asyncpg==0.27.0
 mido==1.2.10
-sqlalchemy==1.4.47
+sqlalchemy==1.4.41
 python-multipart==0.0.6
 opencv-python-headless==4.5.3.56
 tensorflow==2.9.0
