@@ -29,6 +29,9 @@ FREQ = {
     "C5": 523, "C#5": 554, "D5": 587, "D#5": 622, "E5": 659, "F5": 698, "F#5": 739, "G5": 784,
     "G#5": 830, "A5": 880, "A#5": 932, "B5": 987,
 }
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+MODEL_PATH = os.path.join(BASE_DIR, 'trained_model.h5')
 
 # Загрузка модели детекции
 detector = hub.load("https://tfhub.dev/tensorflow/faster_rcnn/inception_resnet_v2_640x640/1")
@@ -52,7 +55,6 @@ def detect_notes_on_single_image(image_path, threshold=0.01):
     valid_boxes = boxes[scores > threshold]
     logger.info(f"Обнаружено {len(valid_boxes)} объектов с уверенностью выше {threshold}.")
     return valid_boxes, img
-
 def crop_notes(image, boxes):
     """
     Обрезает изображения нот на основе bounding boxes.
@@ -63,11 +65,21 @@ def crop_notes(image, boxes):
     for box in boxes:
         ymin, xmin, ymax, xmax = box
         x1, y1, x2, y2 = int(xmin * width), int(ymin * height), int(xmax * width), int(ymax * height)
-        cropped_note = image[y1:y2, x1:x2]
-        cropped_notes.append(cropped_note)
+
+        # Проверка границ
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(width, x2), min(height, y2)
+
+        if x2 > x1 and y2 > y1:  # Убедитесь, что координаты корректны
+            cropped_note = image[y1:y2, x1:x2]
+            cropped_notes.append(cropped_note)
+        else:
+            logger.warning(f"Пропущена область: {box}")
+
+    if not cropped_notes:
+        raise ValueError("Обрезанные изображения отсутствуют или некорректны.")
 
     return cropped_notes
-
 def process_image(image_path):
     """
     Преобразует изображение в формат, подходящий для модели детекции.
@@ -97,12 +109,24 @@ def classify_notes_batch(cropped_notes, classification_model, class_indices):
     Классифицирует ноты в пакетном режиме для ускорения.
     """
     note_labels = []
-    batch_notes = np.array([cv2.resize(note, (128, 128)) / 255.0 for note in cropped_notes])
-    batch_notes = batch_notes[..., np.newaxis]  # Добавляем каналы для грейскейл
+    batch_notes = []
+
+    for note in cropped_notes:
+        if note is None or note.size == 0:  # Проверка валидности изображения
+            logger.warning("Пропущена нота из-за некорректного изображения.")
+            continue
+        resized_note = cv2.resize(note, (128, 128)) / 255.0
+        batch_notes.append(resized_note)
+
+    if not batch_notes:
+        raise ValueError("Нет корректных нот для классификации.")
+
+    batch_notes = np.array(batch_notes)
+    batch_notes = batch_notes[..., np.newaxis]  # Добавляем канал для грейскейл
 
     predictions = classification_model.predict(batch_notes)
     for prediction in predictions:
-        note_label = list(class_indices.keys())[np.argmax(prediction)]  # Получаем метку с наибольшей вероятностью
+        note_label = list(class_indices.keys())[np.argmax(prediction)]
         note_labels.append(note_label)
 
     return note_labels
@@ -166,22 +190,3 @@ def main(image_path, model_path, class_indices, output_midi_path):
 
     except Exception as e:
         logger.error(f"Ошибка в пайплайне: {e}")
-
-if __name__ == "__main__":
-    # Параметры
-    IMAGE_PATH = r"D:\Projects\BRIGADA2-1.png"  # Укажите путь к изображению
-    MODEL_PATH = r"D:\Projects\trained_model.h5"  # Укажите путь к модели
-    CLASS_INDICES = {
-        "C1": 0, "C#1": 1, "D1": 2, "D#1": 3, "E1": 4, "F1": 5, "F#1": 6, "G1": 7,
-        "G#1": 8, "A1": 9, "A#1": 10, "B1": 11, "C2": 12, "C#2": 13, "D2": 14, "D#2": 15,
-        "E2": 16, "F2": 17, "F#2": 18, "G2": 19, "G#2": 20, "A2": 21, "A#2": 22, "B2": 23,
-        "C3": 24, "C#3": 25, "D3": 26, "D#3": 27, "E3": 28, "F3": 29, "F#3": 30, "G3": 31,
-        "G#3": 32, "A3": 33, "A#3": 34, "B3": 35, "C4": 36, "C#4": 37, "D4": 38, "D#4": 39,
-        "E4": 40, "F4": 41, "F#4": 42, "G4": 43, "G#4": 44, "A4": 45, "A#4": 46, "B4": 47,
-        "C5": 48, "C#5": 49, "D5": 50, "D#5": 51, "E5": 52, "F5": 53, "F#5": 54, "G5": 55,
-        "G#5": 56, "A5": 57, "A#5": 58, "B5": 59,
-    }
-    OUTPUT_MIDI_PATH = r"output.mid"  # Укажите путь для сохранения MIDI-файла
-
-    # Запуск пайплайна
-    main(IMAGE_PATH, MODEL_PATH, CLASS_INDICES, OUTPUT_MIDI_PATH)

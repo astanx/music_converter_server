@@ -4,7 +4,7 @@ from pydub import AudioSegment
 from midi2audio import FluidSynth
 import os
 from app.database.connection import database
-from app.neural_network.main import classify_and_convert_to_midi, load_model
+from app.neural_network.main import classify_and_convert_to_midi, load_model, MODEL_PATH, detect_notes_on_single_image, crop_notes
 router = APIRouter()
 CLASS_INDICES = {
         "C1": 0, "C#1": 1, "D1": 2, "D#1": 3, "E1": 4, "F1": 5, "F#1": 6, "G1": 7,
@@ -17,8 +17,6 @@ CLASS_INDICES = {
         "G#5": 56, "A5": 57, "A#5": 58, "B5": 59,
     }
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, 'neural_network', 'trained_model.h5')
-
 @router.post("/music_converter/{userId}")
 async def convert_music(request: Request, userId: int, files: List[UploadFile] = File(...)):
     output_directory = "output"
@@ -39,8 +37,13 @@ async def convert_music(request: Request, userId: int, files: List[UploadFile] =
             classification_model = load_model(MODEL_PATH)  # Используем os для построения пути к модели
             output_midi_path = os.path.join(output_directory, f"{os.path.splitext(file.filename)[0]}.mid")
 
-            # Классификация и преобразование в MIDI
-            classify_and_convert_to_midi([temp_image_path], classification_model, CLASS_INDICES, output_midi_path)
+            boxes, img = detect_notes_on_single_image(temp_image_path)
+            cropped_notes = crop_notes(img, boxes)
+
+            if not cropped_notes:
+                return {"message": "Не удалось обрезать ноты.", "error": True}
+
+            classify_and_convert_to_midi(cropped_notes, classification_model, CLASS_INDICES, output_midi_path)
 
             # Конвертация MIDI в WAV
             wav_filename = f"{os.path.splitext(file.filename)[0]}.wav"

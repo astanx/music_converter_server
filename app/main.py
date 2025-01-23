@@ -6,7 +6,6 @@ from app.api import users, music
 app = FastAPI()
 add_cors(app)
 
-
 @app.on_event("startup")
 async def startup():
     await database.connect()
