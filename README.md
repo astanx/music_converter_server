@@ -23,6 +23,8 @@ cd music_converter_server
 Убедитесь, что у вас установлен Python (версии 3.10!!!!) и менеджер пакетов pip. Установите необходимые зависимости:
 
 pip install -r requirements.txt
+choco install fluidsynth
+choco install ffmpeg
 
 3. Запуск приложения
 
