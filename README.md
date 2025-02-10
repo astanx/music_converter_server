@@ -31,8 +31,8 @@ choco install ffmpeg
 Для запуска приложения выполните следующую команду:
 
 uvicorn app.main:app --reload
-
+```
 Демонстрация
 
 Видеоролик, демонстрирующий работу приложения, доступен по ссылке:
-Демонстрация Music Converter
+[Демонстрация Music Converter](https://rutube.ru/video/9a6c1e893adec9a9f9a941d972c2ee30/)
